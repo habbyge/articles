@@ -42,7 +42,7 @@ MVC是由三个词组成的，M（Model）主要用来处理数据，例如从�
 
 MVP里强调的是M、V、P三层都是抽象的概念，因此如果严格按照抽象定义，一个完整的MVP应该至少包含三个接口与三个实现类，而按照谷歌的推荐，这三个接口会通过一个Contract的概念放在一起，以更直观地了解到MVP的全部面目（不管是谁的推荐，使代码变得直观就是一个很好的 idea），所以一个最完善的MVP大致和下面的示例一致，以简单使用用户名和密码进行登录为例。
 
-```
+```java
 public interface LoginContract{
     public interface LoginModel{
         User login(String userName, String userPwd);
@@ -70,7 +70,7 @@ public interface LoginContract{
 
 为了说明后续的问题，贴一下现有的Presenter实现类。
 
-```
+```java
 public class LoginPresenterImpl implements LoginContract.LoginPresenter{
     private LoginContract.LoginView mLoginView;
     private LoginContract.LoginModel mLoginModel;
@@ -108,13 +108,13 @@ public class LoginPresenterImpl implements LoginContract.LoginPresenter{
         if(user == null){
             if(mLoginView != null){
                 mLoginView.loginFailed("some error");
-            } 
+            }
             return;
         }
 
         if(mLoginView != null){
             mLoginView.loginSuccess();
-        } 
+        }
     }
 }
 ```
@@ -123,7 +123,7 @@ public class LoginPresenterImpl implements LoginContract.LoginPresenter{
 
 以上示例虽然写了好几个类，但整体而言结构清晰，看起来很简洁舒爽，但是实际项目中大多页面的功能都是极其复杂的，从模块化的角度去看也是多个模块耦合在一起，如此一来P的整洁就很难保持了，很可能随着业务的堆积体积暴涨，在一个P中实现了多个模块的功能也使得P的可重用性大大降低。让我们凭空捏造一个复杂场景，在某个页面除了本身的功能之外，我们希望根据用户会员身份决定是否推荐一些促销信息，会以弹窗的方式展示给用户，同时在Toolbar上想要轮播当前的热搜词，诱导用户进入搜索以购买商品，然后还希望在页面上加一个类似广告的小浮窗，对不同的用户给予不同的折扣活动推荐。P的结构可能会像这样：
 
-```
+```java
 public interface GoodsPresenter{
     // 页面本身的核心内容
     void getGoodsByPage(int page);
@@ -155,7 +155,7 @@ public interface GoodsPresenter{
 
 P的拆分势在必行，不然无法重用，Activity也应该仅实现一个V，持有一个P才能保持单纯，这看起来是矛盾的，难道真的鱼与熊掌不可兼得了吗？别忘了我们MVP的全部概念都是抽象的，对应于Java就是一个个接口，而接口是可以多继承的，利用这一点就可以让矛盾化为无形。我们可以再建一个P，它同时继承GoodsPresenter、VipPresenter、SearchPresenter…，对V也进行同样的处理，然后在实现层组合多个P和V一起实现功能。改进后的P如下所示：
 
-```
+```java
 public interface GoodsPresenter{
     // 页面本身的核心内容
     void getGoodsByPage(int page);
@@ -185,11 +185,11 @@ public class GoodsProxyPresenterImpl implements GoodsProxyPresenter{
     private SearchPresenter mSearchPresenter;
 
     public GoodsProxyPresenterImpl(){
-        mGoodsPresenter = new GoodsPresenterImpl();     
-        mVipPresenter = new VipPresenterImpl(); 
-        mSearchPresenter = new SearchPresenterImpl(); 
+        mGoodsPresenter = new GoodsPresenterImpl();
+        mVipPresenter = new VipPresenterImpl();
+        mSearchPresenter = new SearchPresenterImpl();
     }
-    
+
     @Override
     public void attach(GoodsProxyView view){
         mGoodsPresenter.attach(view);
@@ -246,7 +246,7 @@ public interface VipView extends SharedVipView{
 
 为了管理上的便利，我们还是通过继承来定义P和V的接口层，当然也可以完全另写一个接口，这不会造成多大的影响。我们定义的接口如下：
 
-```
+```java
 public interface SharedVipView{
     void getUserVip(String vipId);
     void getVipSales(VipSales sales);
@@ -268,7 +268,7 @@ public interface VipPresenter extends SharedVipPresenter{
 
 主要的差别在于P的实现，我们要让两个P之间毫无关联，即使功能是完全一致的，也要各自有自己的实现。它们可以定义如下：
 
-```
+```java
 public class SharedVipPresenterImpl implements SharedVipPresenter{
     @Override
     public void getUserVip(String userId){
@@ -305,7 +305,7 @@ public class VipPresenterImpl implements VipPresenter{
 
 让我们把这两段代码单独拿出来看，它们是不是已经没有可优化的空间了呢？
 
-```
+```java
 @Override
 public void getUserVip(String userId){
     VipInfo vipInfo = mVipModel.getUserVip(userId);
@@ -325,7 +325,7 @@ public void getUserVip(String userId){
 
 这两段代码除了依赖的V不同，其余部分完全一致，我们是不是会率先想到抽取一下，把V当成变量传递进来，就像这样：
 
-```
+```java
 // 含义尚不明确，不知道如何取名字
 public class VipPresenterXxx<V extends SharedVipView>{
     private V mView;
@@ -347,7 +347,7 @@ public class VipPresenterXxx<V extends SharedVipView>{
 
 现实逼迫着我们进行抽取，又不能混合着两个V使用，所以我们只能抽取，但是留下V。我们把例子举的稍微复杂一点，这样可以看得更清楚：
 
-```
+```java
 @Override
 public void getUserVipId(String userId){
     VipInfo vipInfo = mVipModel.getUserVip(userId);
@@ -362,7 +362,7 @@ public void getUserVipId(String userId){
 
 最开始我们就说过C的作用不仅是传递数据到V，它还要中间负责对数据的加工，P是C的升级版，自然也有一样的职责。如果我们只抽取部分，而留下V，可以发现它们被完美的拆分成了数据加工和页面渲染两部分：
 
-```
+```java
 // 数据加工部分
 VipInfo vipInfo = mVipModel.getUserVip(userId);
 // 要根据用户ID和当前的VIP信息，经过复杂的计算得到一个当前需要的vipId
@@ -382,7 +382,7 @@ mVipView.getUserVipId(vipId);
 
 我们给M升级，自然会减轻P的负担，使得M、V、P三部分可以“三足鼎立”，再不是P一个说了算。升级后的M依然可以保持独立性，因此也不会破坏任一个MVP单元。一个Repository由纯粹的业务和对业务加工两部分组成，因为NSM是BSM的特例，因此外界对这两部分是零感知的。还是以Vip为例，我们的Repository定义如下：
 
-```
+```java
 public interface VipModel{
     VipInfo getUserVip(String userId);
     VipSales getVipSales(String vipId);
@@ -398,7 +398,7 @@ public interface VipRepository extends VipModel{
 
 其中，NSM部分的能力依然由原始的M完成，而BSM的能力则由Repository来完成，所以Repository的实例会依赖M，实现如下：
 
-```
+```java
 public class VipRepositoryImpl implements VipRepository{
     private VipModel mVipModel;
 
